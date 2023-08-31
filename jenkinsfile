@@ -1,0 +1,23 @@
+pipeline{
+    agent any
+    tools {
+      git 'git11'
+    }
+    stages{
+        stage('checkout'){
+            steps{
+                git 'https://github.com/udayreddy1996/ecomm.git'
+            }
+        }
+        stage('move to http server'){
+            steps{
+                script {
+                    sshagent(['54.234.212.124']) {
+                        sh 'ssh -o StrictHostKeyChecking=no ec2-user@54.234.212.124'
+                        sh 'scp /var/lib/jenkins/workspace/maven_job/* ec2-user@54.234.212.124:/home/ec2-user'
+                    }
+                }
+            }
+        }
+    }
+}
