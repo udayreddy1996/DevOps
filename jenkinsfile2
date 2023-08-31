@@ -1,0 +1,40 @@
+pipeline{
+    agent any
+    tools{
+        git 'git11'
+    }
+    stages{
+        stage('cloning'){
+            steps{
+            git 'https://github.com/udayreddy1996/ecomm.git'
+            }
+        }
+        stage('copy dockerfile'){
+            steps{
+                sshagent(['docker11']) {
+                 sh 'ssh -o StrictHostKeyChecking=no ec2-user@3.91.99.75'
+                 sh 'scp /var/lib/jenkins/workspace/maven_job/Dockerfile ec2-user@3.91.99.75:/home/ec2-user'
+                }
+            }
+        }
+        stage('build_dockerfile'){
+            steps{
+                sshagent(['docker11']) {
+                 sh 'ssh -o StrictHostKeyChecking=no ec2-user@3.91.99.75 docker build . -t uday011/ecomm:v1.$BUILD_ID'
+                 sh 'ssh -o StrictHostKeyChecking=no ec2-user@3.91.99.75 docker run -d -t -p 80:80 uday011/ecomm:v1.$BUILD_ID' 
+                }   
+            }
+        }
+        stage('DockerHub'){
+            steps{
+                sshagent(['docker11']) {
+                    withCredentials([string(credentialsId: 'DockerHub', variable: 'DockerHub')]) {
+                        sh "ssh -o StrictHostKeyChecking=no ec2-user@3.91.99.75 docker login -u uday011 -p ${DockerHub}"
+                        sh 'ssh -o StrictHostKeyChecking=no ec2-user@3.91.99.75 docker push uday011/ecomm:v1.$BUILD_ID'
+                    }
+                  
+                }
+            }   
+        }
+    }   
+}
