@@ -1,0 +1,50 @@
+pipeline{
+    agent any
+    tools {
+        git 'git11'
+        jdk 'jdk11'
+        maven 'maven11'
+        
+    }
+    environment {
+        SCANNER_HOME= tool 'sonar11'
+    }
+    stages{
+        stage('cloneing'){
+            steps{
+                git 'https://github.com/udayreddy1996/JavaWebCalculator.git'
+            }
+        }
+        stage('build'){
+            steps{
+            sh 'mvn clean package'
+            }
+        }
+        stage('sonar_stage'){
+            steps{
+                script{
+                    withSonarQubeEnv('sonar_server') {
+                    sh 'mvn sonar:sonar'
+                    }
+                }
+            }
+        }
+        stage('nexus_stage'){
+            steps{
+                script{
+                     rtUpload (
+                    serverId: 'Jfog_server',
+                    spec: """{
+                        "files": [
+                            {
+                                "pattern": "target/*.war",
+                                "target": "example-repo-local/Jfrog$BUILD_NUMBER/"
+                            }
+                        ]
+                    }"""
+                )
+                }
+            }
+        }
+    }
+}
