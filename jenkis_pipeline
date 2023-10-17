@@ -1,0 +1,53 @@
+pipeline {
+    agent any
+    stages {
+        stage('cloning') {
+            steps {
+                git 'https://github.com/udayreddy1996/ecomm.git'
+            }
+        }
+        stage('docker_build') {
+            agent {
+                label 'dockerstage'
+            }
+            steps {
+                script {
+                    // Create a Dockerfile in the workspace
+                    sh """echo '
+                    # Base Image
+                    FROM httpd:2.4
+                    # Remove existing contents of the directory
+                    RUN rm -rf /usr/local/apache2/htdocs/*
+                    # Install Git
+                    RUN apt-get update && apt-get install -y git
+                    # Clone the repository into the container
+                    RUN git clone https://github.com/udayreddy1996/ecomm.git /usr/local/apache2/htdocs/
+                    EXPOSE 80
+                    ' > Dockerfile"""
+
+                    // Build the Docker image
+                    sh "docker build -t uday011/ecomm:$BUILD_NUMBER ."
+
+                    // Tag the Docker image
+                    sh "docker tag uday011/ecomm:$BUILD_NUMBER my-docker-registry/uday011/ecomm:$BUILD_NUMBER"
+
+                    // Push the Docker image to the registry using credentials
+                    withDockerRegistry(credentialsId: 'docker11', toolName: 'Docker11') {
+                        sh "docker push uday011/ecomm:$BUILD_NUMBER"
+                    }
+                }
+            }
+        }
+        stage('k8s_deploy'){
+            agent {
+                label 'k8s'
+            }
+            steps{
+                script{
+                    sh "cp /home/ec2-user/ds.yaml . " 
+                    sh "kubectl apply -f ds.yaml"
+                }
+            }
+        }
+    }
+}
