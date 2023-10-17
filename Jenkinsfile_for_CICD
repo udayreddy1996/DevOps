@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+    tools {
+        git 'git11'
+        maven 'maven11'
+    }
+    environment {
+        SCANNER_HOME= tool  'sonar11'
+    }
+    stages {
+        stage('cloning') {
+            steps {
+                git 'https://github.com/udayreddy1996/JavaWebCalculator.git'
+            }
+        }
+        stage('sonar_scanning') {
+            steps{
+                script {
+                    withSonarQubeEnv(credentialsId: 'sonarid') {
+                        sh """mvn clean verify sonar:sonar \
+                            -Dsonar.projectKey=Devops \
+                            -Dsonar.projectName='Devops' \
+                            -Dsonar.host.url=http://18.204.3.44:9000 \
+                            -Dsonar.token=sqp_32e9d98005eee5ff2cda32c4733657768c63d367"""
+                    }
+                }
+
+            }
+        }
+        stage('maven_Build') {
+            steps{
+                script {
+                    sh 'mvn clean package'
+                    stash(name: 'war-artifact', includes: 'target/webapp-0.2.war')
+                }
+            }
+        }
+        stage('docker build stage'){
+            agent {
+                label 'dockerstage'
+            }
+            steps{
+                script {
+                    withDockerRegistry(credentialsId: 'docker11', toolName: 'Docker11') {
+                    unstash 'war-artifact'
+                    sh 'cp /home/ubuntu/Dockerfile . '
+                    sh "docker build -t uday011/ecomm:$BUILD_NUMBER ."
+                    sh "docker push uday011/ecomm:$BUILD_NUMBER"
+                    }
+                }
+            }
+        }
+        stage('k8s_deploy'){
+            agent {
+                label 'k8s'
+            }
+            steps{
+                script{
+                    sh "cp /home/ec2-user/ds.yaml . " 
+                    sh "kubectl apply -f ds.yaml"
+                }
+            }
+        }
+    }    
+}
